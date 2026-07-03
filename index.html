@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>مصنع الصفوة للرخام والجرانيت</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@200..700,0..1&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <section class="login-screen" id="loginScreen">
+      <div class="login-card">
+        <img src="assets/safwa-logo.png" alt="شعار مصنع الصفوة" class="login-logo" />
+        <p class="eyebrow">مصنع الصفوة للرخام والجرانيت</p>
+        <h1>تسجيل الدخول</h1>
+        <form id="loginForm" class="login-form">
+          <label>اسم المستخدم<input required type="text" name="username" placeholder="فتحي عبدالستار" /></label>
+          <label>كلمة المرور<input required type="password" name="password" placeholder="كلمة المرور" /></label>
+          <button class="primary-button" type="submit"><span class="material-symbols-outlined">login</span>دخول النظام</button>
+        </form>
+        <p class="login-hint">الحسابات الافتراضية: فتحي عبدالستار و ياسر ناصف، كلمة المرور 123456</p>
+      </div>
+    </section>
+
+    <div class="app-shell hidden-app" id="appShell">
+      <div class="moving-watermark" aria-hidden="true">
+        <img src="assets/safwa-logo.png" alt="" />
+      </div>
+      <aside class="sidebar">
+        <div class="brand">
+          <img src="assets/safwa-logo.png" alt="شعار مصنع الصفوة" class="brand-logo" />
+          <div>
+            <strong>مصنع الصفوة</strong>
+            <span>رخام وجرانيت</span>
+          </div>
+        </div>
+        <nav class="nav" aria-label="التنقل الرئيسي">
+          <button class="nav-item active" data-view="dashboard"><span class="material-symbols-outlined">dashboard</span>الرئيسية</button>
+          <button class="nav-item" data-view="inventory"><span class="material-symbols-outlined">inventory_2</span>المخزون</button>
+          <button class="nav-item" data-view="sales"><span class="material-symbols-outlined">receipt_long</span>فاتورة جديدة</button>
+          <button class="nav-item" data-view="invoices"><span class="material-symbols-outlined">fact_check</span>الفواتير</button>
+          <button class="nav-item" data-view="reports"><span class="material-symbols-outlined">bar_chart</span>التقارير</button>
+          <button class="nav-item" data-view="factoryReports"><span class="material-symbols-outlined">engineering</span>تقارير المصنع</button>
+          <button class="nav-item" data-view="calculator"><span class="material-symbols-outlined">calculate</span>الحاسبة</button>
+          <button class="nav-item" data-view="users"><span class="material-symbols-outlined">manage_accounts</span>المستخدمين</button>
+        </nav>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">نظام إدارة المصنع</p>
+            <h1 id="pageTitle">الرئيسية</h1>
+          </div>
+          <div class="top-actions">
+            <span class="user-chip" id="currentUserChip"></span>
+            <button class="ghost-button" id="exportBtn"><span class="material-symbols-outlined">download</span>تصدير نسخة</button>
+            <button class="ghost-button" id="importBtn"><span class="material-symbols-outlined">upload</span>استيراد نسخة</button>
+            <input class="hidden" id="importFile" type="file" accept="application/json" />
+            <button class="primary-button" data-view-jump="sales"><span class="material-symbols-outlined">add</span>فاتورة جديدة</button>
+            <button class="ghost-button" id="logoutBtn"><span class="material-symbols-outlined">logout</span>خروج</button>
+          </div>
+        </header>
+
+        <section class="view active" id="dashboardView">
+          <div class="stats-grid" id="dashboardStats"></div>
+          <div class="split-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <h2>آخر الفواتير</h2>
+                <button class="link-button" data-view-jump="invoices">عرض الكل</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>العميل</th>
+                      <th>الخامة</th>
+                      <th>الإجمالي</th>
+                      <th>الدفع</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recentInvoices"></tbody>
+                </table>
+              </div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <h2>تنبيهات المخزون</h2>
+                <button class="link-button" data-view-jump="inventory">إدارة</button>
+              </div>
+              <div id="stockAlerts" class="alert-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="inventoryView">
+          <div class="section-toolbar">
+            <div class="search-box">
+              <span class="material-symbols-outlined">search</span>
+              <input id="inventorySearch" type="search" placeholder="ابحث باسم النوع أو اللون أو مكان التخزين..." />
+            </div>
+            <button class="primary-button" id="openStoneModal"><span class="material-symbols-outlined">add</span>إضافة نوع جديد</button>
+          </div>
+          <div class="stone-grid" id="stoneGrid"></div>
+        </section>
+
+        <section class="view" id="salesView">
+          <form class="invoice-layout" id="invoiceForm">
+            <section class="panel accent-panel">
+              <h2><span class="material-symbols-outlined">person</span>بيانات العميل</h2>
+              <div class="form-grid">
+                <label>اسم العميل<input required name="customerName" placeholder="اكتب اسم العميل بالكامل" /></label>
+                <label>رقم التليفون<input required name="phone" placeholder="01xxxxxxxxx" /></label>
+                <label class="wide">العنوان<input name="address" placeholder="المنطقة، الشارع، رقم العقار" /></label>
+              </div>
+            </section>
+
+            <section class="panel">
+              <h2><span class="material-symbols-outlined">shopping_cart</span>تفاصيل الطلب</h2>
+              <div class="invoice-items" id="invoiceItems"></div>
+              <button class="ghost-button add-item-button" type="button" id="addInvoiceItem"><span class="material-symbols-outlined">add</span>إضافة نوع رخام آخر</button>
+              <div class="form-grid">
+                <label class="wide">تفاصيل شغل العميل<textarea required name="workDetails" rows="5" placeholder="مثال: تفصيل رخام لمطبخ شامل تقطيع وتركيب والمقاسات بعد المعاينة..."></textarea></label>
+              </div>
+            </section>
+
+            <section class="panel">
+              <h2><span class="material-symbols-outlined">payments</span>حالة الدفع</h2>
+              <div class="payment-options">
+                <label><input type="radio" name="paymentStatus" value="paid" checked /> مدفوع بالكامل</label>
+                <label><input type="radio" name="paymentStatus" value="deposit" /> دفع عربون</label>
+                <label><input type="radio" name="paymentStatus" value="unpaid" /> لم يتم الدفع</label>
+              </div>
+              <label id="paymentMethodField">طريقة الدفع<select name="paymentMethod" id="paymentMethod">
+                <option value="cash">نقدي</option>
+                <option value="vodafone_cash">فودافون كاش</option>
+                <option value="instapay">إنستا باي</option>
+                <option value="bank_transfer">تحويل بنكي</option>
+              </select></label>
+              <label id="depositField" class="hidden">قيمة العربون<input min="0" step="0.01" type="number" name="deposit" id="depositAmount" placeholder="0.00" /></label>
+            </section>
+
+            <aside class="summary-panel">
+              <p>إجمالي الفاتورة</p>
+              <strong id="invoiceTotal">0.00 ج.م</strong>
+              <dl>
+                <div><dt>الأمتار</dt><dd id="summaryMeters">0 م²</dd></div>
+                <div><dt>سعر المتر</dt><dd id="summaryPrice">0.00 ج.م</dd></div>
+                <div><dt>المدفوع</dt><dd id="summaryPaid">0.00 ج.م</dd></div>
+                <div><dt>المتبقي</dt><dd id="summaryRemaining">0.00 ج.م</dd></div>
+              </dl>
+              <button class="success-button" type="submit"><span class="material-symbols-outlined">save</span>حفظ الفاتورة وخصم المخزون</button>
+            </aside>
+          </form>
+        </section>
+
+        <section class="view" id="invoicesView">
+          <div class="section-toolbar">
+            <div class="search-box">
+              <span class="material-symbols-outlined">search</span>
+              <input id="invoiceSearch" type="search" placeholder="ابحث باسم العميل أو التليفون أو نوع الرخام..." />
+            </div>
+          </div>
+          <div class="table-wrap panel">
+            <table>
+              <thead>
+                <tr>
+                  <th>رقم</th>
+                  <th>التاريخ</th>
+                  <th>العميل</th>
+                  <th>التليفون</th>
+                  <th>الخامة</th>
+                  <th>الأمتار</th>
+                  <th>الإجمالي</th>
+                  <th>حالة الدفع</th>
+                  <th>تم بواسطة</th>
+                  <th>إجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="invoiceTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="view" id="reportsView">
+          <div class="section-toolbar report-toolbar">
+            <label>حفظ تقرير
+              <select id="reportType">
+                <option value="stock">تقرير المخزون</option>
+                <option value="customers">تقرير العملاء والحسابات</option>
+                <option value="invoices">تقرير الفواتير</option>
+                <option value="factory">تقرير مصروفات المصنع</option>
+              </select>
+            </label>
+            <button class="primary-button" id="downloadReportBtn" type="button"><span class="material-symbols-outlined">download</span>تنزيل التقرير</button>
+            <button class="ghost-button" id="downloadFullBackupBtn" type="button"><span class="material-symbols-outlined">database</span>تنزيل نسخة كاملة</button>
+          </div>
+          <div class="stats-grid" id="reportsStats"></div>
+          <div class="split-grid">
+            <section class="panel">
+              <h2>الكمية المتبقية من كل نوع</h2>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>الخامة</th><th>المتبقي</th><th>القيمة المخزنية</th></tr></thead>
+                  <tbody id="stockReport"></tbody>
+                </table>
+              </div>
+            </section>
+            <section class="panel">
+              <h2>العملاء الذين اشتروا من المصنع</h2>
+              <div id="customerReport" class="customer-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="factoryReportsView">
+          <div class="stats-grid" id="factoryReportStats"></div>
+          <div class="split-grid">
+            <section class="panel accent-panel">
+              <h2><span class="material-symbols-outlined">engineering</span>تسجيل تقرير للمصنع</h2>
+              <form id="factoryReportForm" class="form-grid">
+                <label>نوع التقرير<select required name="type">
+                  <option value="maintenance">صيانة</option>
+                  <option value="withdrawal">سحب من الحساب</option>
+                  <option value="expense">مصروف تشغيل</option>
+                  <option value="purchase">شراء للمصنع</option>
+                  <option value="utilities">كهرباء / مياه / مرافق</option>
+                  <option value="other">أخرى</option>
+                </select></label>
+                <label>المبلغ<input required min="0" step="0.01" type="number" name="amount" placeholder="0.00" /></label>
+                <label>خرجت منين؟<select required name="source">
+                  <option value="cash">الخزنة / نقدي</option>
+                  <option value="bank">الحساب البنكي</option>
+                  <option value="vodafone_cash">فودافون كاش</option>
+                  <option value="instapay">إنستا باي</option>
+                  <option value="other">أخرى</option>
+                </select></label>
+                <label>التاريخ والوقت<input type="datetime-local" name="date" id="factoryReportDate" /></label>
+                <label class="wide">العنوان<input required name="title" placeholder="مثال: صيانة ماكينة التقطيع" /></label>
+                <label class="wide">ملاحظات<textarea required name="notes" rows="4" placeholder="اكتبي حصل إيه، مين نفذ، واتصرف كام وليه..."></textarea></label>
+                <button class="primary-button" type="submit"><span class="material-symbols-outlined">save</span>حفظ تقرير المصنع</button>
+              </form>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <h2>سجل تقارير المصنع</h2>
+                <button class="ghost-button" id="downloadFactoryReportBtn" type="button"><span class="material-symbols-outlined">download</span>تنزيل التقرير</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>التاريخ</th>
+                      <th>النوع</th>
+                      <th>العنوان</th>
+                      <th>المبلغ</th>
+                      <th>المصدر</th>
+                      <th>ملاحظات</th>
+                      <th>تم بواسطة</th>
+                      <th>إجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody id="factoryReportsTable"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="calculatorView">
+          <section class="panel calculator-panel standalone-calculator">
+            <div class="panel-head">
+              <h2><span class="material-symbols-outlined">calculate</span>حاسبة القياسات</h2>
+              <button class="link-button" id="clearCalculatorHistory" type="button">مسح السجل</button>
+            </div>
+            <div class="calculator-display">
+              <span id="calculatorExpression">0</span>
+              <strong id="calculatorResult">0</strong>
+            </div>
+            <div class="calculator-keys" id="calculatorKeys">
+              <button type="button" data-calc="7">7</button>
+              <button type="button" data-calc="8">8</button>
+              <button type="button" data-calc="9">9</button>
+              <button type="button" class="operator" data-calc="/">÷</button>
+              <button type="button" data-calc="4">4</button>
+              <button type="button" data-calc="5">5</button>
+              <button type="button" data-calc="6">6</button>
+              <button type="button" class="operator" data-calc="*">×</button>
+              <button type="button" data-calc="1">1</button>
+              <button type="button" data-calc="2">2</button>
+              <button type="button" data-calc="3">3</button>
+              <button type="button" class="operator" data-calc="-">-</button>
+              <button type="button" class="danger-key" data-calc="clear">C</button>
+              <button type="button" data-calc="0">0</button>
+              <button type="button" data-calc=".">.</button>
+              <button type="button" class="operator" data-calc="+">+</button>
+              <button type="button" class="equals-key" data-calc="equals">=</button>
+            </div>
+            <div class="calculator-history" id="calculatorHistory"></div>
+          </section>
+        </section>
+
+        <section class="view" id="usersView">
+          <div class="split-grid">
+            <section class="panel accent-panel">
+              <h2><span class="material-symbols-outlined">person_add</span>إضافة مستخدم للنظام</h2>
+              <form id="userForm" class="form-grid">
+                <label>اسم المستخدم<input required name="name" placeholder="مثال: فتحي عبدالستار" /></label>
+                <label>كلمة المرور<input required minlength="4" type="password" name="password" placeholder="اكتب كلمة المرور" /></label>
+                <button class="primary-button" type="submit"><span class="material-symbols-outlined">save</span>حفظ المستخدم</button>
+              </form>
+            </section>
+            <section class="panel">
+              <h2>المستخدمون الحاليون</h2>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>اسم المستخدم</th><th>أضيف بواسطة</th><th>إجراءات</th></tr></thead>
+                  <tbody id="usersTable"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="stoneModal">
+      <form method="dialog" class="modal-card" id="stoneForm">
+        <div class="panel-head">
+          <h2 id="stoneModalTitle">إضافة نوع جديد</h2>
+          <button class="icon-button close-x" value="cancel" type="button" id="closeStoneModal" aria-label="إغلاق">×</button>
+        </div>
+        <input type="hidden" name="id" />
+        <div class="form-grid">
+          <label>اسم النوع<input required name="name" placeholder="مثال: رخام جلالة" /></label>
+          <label>اللون أو الشكل<input required name="color" placeholder="بيج بخطوط ذهبية" /></label>
+          <label>الكمية المتاحة بالمتر<input required min="0" step="0.1" type="number" name="quantity" /></label>
+          <label>سعر المتر<input required min="0" step="0.01" type="number" name="price" /></label>
+          <label>مكان التخزين<input required name="location" placeholder="عنبر A1" /></label>
+          <label>شكل الخامة<select name="pattern"><option value="vein">عرقي فاتح</option><option value="dark">جرانيت داكن</option><option value="white">رخام أبيض</option><option value="red">جرانيت أحمر</option></select></label>
+          <label class="wide">ملاحظات<textarea name="notes" rows="3" placeholder="أي ملاحظات عن التشطيب أو الجودة..."></textarea></label>
+        </div>
+        <div class="modal-actions">
+          <button class="ghost-button" type="button" id="resetDemoData"><span class="material-symbols-outlined">restart_alt</span>استرجاع بيانات تجريبية</button>
+          <button class="primary-button" type="submit"><span class="material-symbols-outlined">save</span>حفظ النوع</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="invoiceModal">
+      <article class="modal-card invoice-preview" id="invoicePreview"></article>
+    </dialog>
+
+    <div class="toast" id="toast"></div>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
