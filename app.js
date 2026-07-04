@@ -1,6 +1,7 @@
-const STORAGE_KEY = "alSafwaFactorySystem.v1";
+﻿const STORAGE_KEY = "alSafwaFactorySystem.v1";
 const SESSION_KEY = "alSafwaFactorySystem.currentUser";
 const LAST_SAVED_KEY = "alSafwaFactorySystem.lastSavedAt";
+const FACTORY_MAPS_URL = "https://maps.app.goo.gl/q6fX5HjU9tsyyLNz6?g_st=ic";
 
 const defaultUsers = [
   { id: "admin-fathy", name: "فتحي عبدالستار", email: "fathy@alsafwa.local", password: "123456", addedBy: "النظام" },
@@ -70,6 +71,11 @@ function normalizeState(parsed) {
   });
   const stones = (parsed.stones || []).map(stone => ({
     ...stone,
+    linearPrice: Number(stone.linearPrice || stone.price || 0),
+    piecePrice: Number(stone.piecePrice || 0),
+    thickness: Number(stone.thickness || 0),
+    length: Number(stone.length || 0),
+    width: Number(stone.width || 0),
     createdBy: stone.createdBy || systemUser,
     updatedBy: stone.updatedBy || stone.createdBy || systemUser
   }));
@@ -95,12 +101,21 @@ function normalizeInvoice(invoice) {
   const normalizedItems = items.map(item => ({
     stoneId: item.stoneId,
     stoneName: item.stoneName,
+    calculationType: item.calculationType || "square",
     meters: Number(item.meters || 0),
+    quantity: Number(item.quantity || item.meters || 0),
+    length: Number(item.length || 0),
+    width: Number(item.width || 0),
+    thickness: Number(item.thickness || 0),
+    baseWidth: Number(item.baseWidth || 60),
+    multiplier: Number(item.multiplier || 1),
+    factor: Number(item.factor || 1),
+    stockImpact: Number(item.stockImpact || item.meters || 0),
     unitPrice: Number(item.unitPrice || 0),
     total: Number(item.total || (Number(item.meters || 0) * Number(item.unitPrice || 0)))
   }));
   const total = normalizedItems.reduce((sum, item) => sum + item.total, 0);
-  const metersTotal = normalizedItems.reduce((sum, item) => sum + item.meters, 0);
+  const metersTotal = normalizedItems.reduce((sum, item) => sum + Number(item.stockImpact || item.meters || 0), 0);
   return {
     ...invoice,
     items: normalizedItems,
@@ -271,6 +286,26 @@ function meters(value) {
   return `${formatNumber(value, 2, true)} م²`;
 }
 
+function invoiceCalculationLabel(type) {
+  return {
+    square: "متر مربع",
+    linear: "متر طولي",
+    piece: "قطعة"
+  }[type] || "متر مربع";
+}
+
+function itemMeasureLabel(item) {
+  const type = item.calculationType || "square";
+  const value = formatNumber(item.meters || item.quantity || 0, 2, true);
+  if (type === "linear") return `${value} متر طولي`;
+  if (type === "piece") return `${value} قطعة`;
+  return `${value} م²`;
+}
+
+function itemPriceLabel(item) {
+  return `${money(item.unitPrice)} / ${invoiceCalculationLabel(item.calculationType)}`;
+}
+
 function formatNumber(value, digits = 0, trimZeros = false) {
   const number = Number(value || 0);
   const fixed = number.toFixed(digits);
@@ -357,6 +392,7 @@ function toCsv(rows) {
 }
 
 function showAppForUser() {
+  document.body.classList.toggle("login-mode", !currentUser);
   document.querySelector("#loginScreen").classList.toggle("hidden-app", Boolean(currentUser));
   document.querySelector("#appShell").classList.toggle("hidden-app", !currentUser);
   document.querySelector("#currentUserChip").textContent = currentUser ? `داخل باسم: ${currentUser.name}` : "";
@@ -419,8 +455,8 @@ function invoiceStoneNames(invoice) {
 }
 
 function renderStats(container, items) {
-  container.innerHTML = items.map(item => `
-    <article class="stat-card">
+  container.innerHTML = items.map((item, index) => `
+    <article class="stat-card stat-tone-${index % 4}" style="--delay: ${index * 90}ms">
       <div>
         <span>${item.label}</span>
         <strong>${item.value}</strong>
@@ -433,10 +469,10 @@ function renderStats(container, items) {
 function renderDashboard() {
   const data = stats();
   renderStats(document.querySelector("#dashboardStats"), [
-    { label: "إجمالي المخزون", value: meters(data.totalStock), icon: "inventory_2" },
     { label: "مبيعات اليوم", value: money(data.todaySales), icon: "today" },
     { label: "مبيعات الشهر", value: money(data.monthSales), icon: "calendar_month" },
-    { label: "عدد العملاء", value: formatNumber(data.customers), icon: "groups" }
+    { label: "عدد العملاء", value: formatNumber(data.customers), icon: "groups" },
+    { label: "عدد الخامات", value: formatNumber(state.stones.length), icon: "inventory_2" }
   ]);
 
   document.querySelector("#recentInvoices").innerHTML = state.invoices.slice(0, 6).map(inv => `
@@ -452,9 +488,9 @@ function renderDashboard() {
   document.querySelector("#stockAlerts").innerHTML = lowStock.map(stone => `
     <div class="alert-item">
       <strong>${stone.name}</strong>
-      <span class="stock-chip ${stone.quantity <= 0 ? "out" : "low"}">${meters(stone.quantity)}</span>
+      <span class="stock-chip ${stone.quantity <= 0 ? "out" : "low"}">${stockText(stone.quantity)}</span>
     </div>
-  `).join("") || `<div class="alert-item"><strong>المخزون مستقر</strong><span>لا توجد تنبيهات حالية</span></div>`;
+  `).join("") || `<div class="alert-item"><strong>الخامات مستقرة</strong><span>لا توجد تنبيهات حالية</span></div>`;
 }
 
 function stockClass(quantity) {
@@ -484,8 +520,11 @@ function renderInventory() {
           <span class="stock-chip ${stockClass(stone.quantity)}">${stockText(stone.quantity)}</span>
         </div>
         <div class="stone-meta">
-          <div><p>الكمية المتاحة</p><strong>${meters(stone.quantity)}</strong></div>
-          <div><p>سعر المتر</p><strong>${money(stone.price)}</strong></div>
+          <div><p>متر مربع</p><strong>${money(stone.price)}</strong></div>
+          <div><p>متر طولي</p><strong>${money(stone.linearPrice || stone.price)}</strong></div>
+          <div><p>قطعة</p><strong>${stone.piecePrice ? money(stone.piecePrice) : "غير محدد"}</strong></div>
+          <div><p>المقاس</p><strong>${stone.length || 0} × ${stone.width || 0} م</strong></div>
+          <div><p>السمك</p><strong>${stone.thickness || 0} سم</strong></div>
         </div>
         <p class="stone-note">آخر تعديل بواسطة: ${userLabel(stone.updatedBy)}</p>
         <p class="stone-note">${stone.notes || "لا توجد ملاحظات"}</p>
@@ -510,7 +549,7 @@ function renderInvoiceStoneOptions() {
 
 function invoiceStoneOptions(current = "") {
   return `<option value="">اختر النوع...</option>` + state.stones.map(stone => `
-    <option value="${stone.id}" ${stone.id === current ? "selected" : ""}>${stone.name} - ${meters(stone.quantity)} متاح</option>
+    <option value="${stone.id}" ${stone.id === current ? "selected" : ""}>${stone.name}</option>
   `).join("");
 }
 
@@ -520,20 +559,83 @@ function addInvoiceItem(prefill = {}) {
   row.className = "invoice-item";
   row.innerHTML = `
     <label>نوع الرخام / الجرانيت<select required class="invoice-stone">${invoiceStoneOptions(prefill.stoneId || "")}</select></label>
-    <label>عدد الأمتار<input required min="0.1" step="0.1" type="number" class="invoice-meters" placeholder="0.00" value="${prefill.meters || ""}" /></label>
-    <label>سعر المتر<input required readonly min="0" step="0.01" type="number" class="invoice-price" placeholder="0.00" value="${prefill.unitPrice || ""}" /></label>
+    <label>طريقة الحساب<select class="invoice-mode">
+      <option value="square" ${(prefill.calculationType || "square") === "square" ? "selected" : ""}>متر مربع</option>
+      <option value="linear" ${prefill.calculationType === "linear" ? "selected" : ""}>متر طولي</option>
+      <option value="piece" ${prefill.calculationType === "piece" ? "selected" : ""}>قطعة</option>
+    </select></label>
+    <label class="invoice-quantity-field">الكمية<input required min="0.1" step="0.1" type="number" class="invoice-meters" placeholder="0.00" value="${prefill.meters || ""}" /></label>
+    <label class="invoice-dimension-field">الطول بالمتر<input min="0" step="0.01" type="number" class="invoice-length" placeholder="0.00" value="${prefill.length || ""}" /></label>
+    <label class="invoice-dimension-field">العرض بالمتر<input min="0" step="0.01" type="number" class="invoice-width" placeholder="0.00" value="${prefill.width || ""}" /></label>
+    <label>السمك بالسم<input min="0" step="0.1" type="number" class="invoice-thickness" placeholder="0.00" value="${prefill.thickness || ""}" /></label>
+    <label>سعر الوحدة<input required readonly min="0" step="0.01" type="number" class="invoice-price" placeholder="0.00" value="${prefill.unitPrice || ""}" /></label>
+    <label class="invoice-linear-extra">العرض الأساسي سم<input min="1" step="0.1" type="number" class="invoice-base-width" value="${prefill.baseWidth || 60}" /></label>
+    <label class="invoice-linear-extra">معامل الزيادة<input min="1" step="0.05" type="number" class="invoice-multiplier" value="${prefill.multiplier || 1.25}" /></label>
     <button class="icon-button remove-invoice-item close-x" type="button" title="حذف البند" aria-label="حذف البند">×</button>
     <div class="invoice-item-total"><span>إجمالي البند</span><strong>0.00 ج.م</strong></div>
   `;
   container.appendChild(row);
   syncInvoiceItemPrice(row);
+  syncInvoiceItemMode(row);
   updateInvoiceSummary();
 }
 
 function syncInvoiceItemPrice(row) {
   const stone = state.stones.find(item => item.id === row.querySelector(".invoice-stone").value);
   const priceInput = row.querySelector(".invoice-price");
-  priceInput.value = stone ? Number(stone.price || 0).toFixed(2) : "";
+  const mode = row.querySelector(".invoice-mode")?.value || "square";
+  const price = mode === "linear" ? (stone?.linearPrice || stone?.price || 0) : mode === "piece" ? (stone?.piecePrice || stone?.price || 0) : (stone?.price || 0);
+  priceInput.value = stone ? Number(price || 0).toFixed(2) : "";
+  if (stone) {
+    if (!row.querySelector(".invoice-length").value && Number(stone.length || 0) > 0) row.querySelector(".invoice-length").value = stone.length;
+    if (!row.querySelector(".invoice-width").value && Number(stone.width || 0) > 0) row.querySelector(".invoice-width").value = stone.width;
+    if (!row.querySelector(".invoice-thickness").value && Number(stone.thickness || 0) > 0) row.querySelector(".invoice-thickness").value = stone.thickness;
+  }
+}
+
+function syncInvoiceItemMode(row) {
+  const mode = row.querySelector(".invoice-mode")?.value || "square";
+  row.dataset.mode = mode;
+  row.querySelector(".invoice-quantity-field").firstChild.textContent = mode === "piece" || mode === "linear" ? "عدد القطع" : "الأمتار أو عدد القطع";
+  row.querySelectorAll(".invoice-linear-extra").forEach(field => field.classList.toggle("hidden", mode !== "linear"));
+}
+
+function calculateInvoiceItem(row) {
+  const stone = state.stones.find(item => item.id === row.querySelector(".invoice-stone").value);
+  if (!stone) return null;
+  const calculationType = row.querySelector(".invoice-mode").value;
+  const quantity = Number(row.querySelector(".invoice-meters").value || 0);
+  const length = Number(row.querySelector(".invoice-length").value || 0);
+  const width = Number(row.querySelector(".invoice-width").value || 0);
+  const thickness = Number(row.querySelector(".invoice-thickness").value || 0);
+  const baseWidth = Number(row.querySelector(".invoice-base-width").value || 60);
+  const multiplier = Number(row.querySelector(".invoice-multiplier").value || 1.25);
+  const unitPrice = Number(row.querySelector(".invoice-price").value || 0);
+  let chargedQuantity = quantity;
+  let factor = 1;
+  if (calculationType === "square" && length > 0 && width > 0) chargedQuantity = Number((length * width * (quantity || 1)).toFixed(3));
+  if (calculationType === "linear") {
+    chargedQuantity = length > 0 ? length * (quantity || 1) : quantity;
+    const widthCm = width > 0 && width <= 10 ? width * 100 : width;
+    factor = widthCm > baseWidth ? Math.max(multiplier, 1) : 1;
+  }
+  return {
+    stone,
+    stoneId: stone.id,
+    stoneName: stone.name,
+    calculationType,
+    quantity,
+    length,
+    width,
+    thickness,
+    baseWidth,
+    multiplier,
+    factor,
+    meters: chargedQuantity,
+    stockImpact: chargedQuantity,
+    unitPrice,
+    total: chargedQuantity * unitPrice * factor
+  };
 }
 
 function clearInvoiceItems() {
@@ -542,30 +644,17 @@ function clearInvoiceItems() {
 }
 
 function collectInvoiceItems() {
-  return [...document.querySelectorAll(".invoice-item")].map(row => {
-    const stone = state.stones.find(item => item.id === row.querySelector(".invoice-stone").value);
-    const metersValue = Number(row.querySelector(".invoice-meters").value || 0);
-    const unitPrice = Number(row.querySelector(".invoice-price").value || 0);
-    return stone ? {
-      stone,
-      stoneId: stone.id,
-      stoneName: stone.name,
-      meters: metersValue,
-      unitPrice,
-      total: metersValue * unitPrice
-    } : null;
-  }).filter(Boolean);
+  return [...document.querySelectorAll(".invoice-item")].map(row => calculateInvoiceItem(row)).filter(Boolean);
 }
 
 function updateInvoiceSummary() {
   const form = document.querySelector("#invoiceForm");
   const items = collectInvoiceItems();
-  const metersValue = items.reduce((sum, item) => sum + item.meters, 0);
+  const metersValue = items.reduce((sum, item) => sum + item.stockImpact, 0);
   const total = items.reduce((sum, item) => sum + item.total, 0);
   document.querySelectorAll(".invoice-item").forEach(row => {
-    const rowMeters = Number(row.querySelector(".invoice-meters").value || 0);
-    const rowPrice = Number(row.querySelector(".invoice-price").value || 0);
-    row.querySelector(".invoice-item-total strong").textContent = money(rowMeters * rowPrice);
+    const item = calculateInvoiceItem(row);
+    row.querySelector(".invoice-item-total strong").textContent = money(item?.total || 0);
   });
   const status = new FormData(form).get("paymentStatus");
   const deposit = Number(form.deposit.value || 0);
@@ -573,7 +662,7 @@ function updateInvoiceSummary() {
   const remaining = Math.max(total - paid, 0);
 
   document.querySelector("#invoiceTotal").textContent = money(total);
-  document.querySelector("#summaryMeters").textContent = meters(metersValue);
+  document.querySelector("#summaryMeters").textContent = formatNumber(metersValue, 2, true);
   document.querySelector("#summaryPrice").textContent = `${formatNumber(items.length)} نوع`;
   document.querySelector("#summaryPaid").textContent = money(paid);
   document.querySelector("#summaryRemaining").textContent = money(remaining);
@@ -591,7 +680,7 @@ function renderInvoices() {
       <td>${inv.customerName}</td>
       <td>${inv.phone}</td>
       <td>${invoiceStoneNames(inv)}</td>
-      <td>${meters(inv.meters)}</td>
+      <td>${formatNumber(inv.meters, 2, true)}</td>
       <td>${money(inv.total)}</td>
       <td><span class="pay-chip ${inv.paymentStatus}">${paymentLabel(inv.paymentStatus)}</span></td>
       <td>${userLabel(inv.createdBy)}</td>
@@ -614,7 +703,7 @@ function renderReports() {
   ]);
 
   document.querySelector("#stockReport").innerHTML = state.stones.map(stone => `
-    <tr><td>${stone.name}</td><td>${meters(stone.quantity)}</td><td>${money(stone.quantity * stone.price)}</td></tr>
+    <tr><td>${stone.name}</td><td>${money(stone.quantity * stone.price)}</td></tr>
   `).join("");
 
   const customers = Object.values(state.invoices.reduce((acc, inv) => {
@@ -632,7 +721,7 @@ function renderReports() {
         requests: []
       };
     }
-    getInvoiceItems(inv).forEach(item => acc[key].orders.add(`${item.stoneName} (${meters(item.meters)})`));
+    getInvoiceItems(inv).forEach(item => acc[key].orders.add(`${item.stoneName} (${itemMeasureLabel(item)})`));
     acc[key].total += Number(inv.total || 0);
     acc[key].paidAmount += Number(inv.paidAmount || 0);
     acc[key].remaining += Number(inv.remaining || 0);
@@ -690,7 +779,7 @@ function customerReportRows() {
         requests: []
       };
     }
-    getInvoiceItems(inv).forEach(item => acc[key].orders.add(`${item.stoneName} (${meters(item.meters)})`));
+    getInvoiceItems(inv).forEach(item => acc[key].orders.add(`${item.stoneName} (${itemMeasureLabel(item)})`));
     acc[key].total += Number(inv.total || 0);
     acc[key].paidAmount += Number(inv.paidAmount || 0);
     acc[key].remaining += Number(inv.remaining || 0);
@@ -717,11 +806,15 @@ function buildReportCsv(type) {
 
   if (type === "stock") {
     return toCsv([
-      ["الخامة", "المتبقي بالمتر", "سعر المتر", "القيمة المخزنية", "مكان التخزين", "ملاحظات"],
+      ["الخامة", "سعر المتر المربع", "سعر المتر الطولي", "سعر القطعة", "السمك", "الطول", "العرض", "القيمة المخزنية", "مكان التخزين", "ملاحظات"],
       ...state.stones.map(stone => [
         stone.name,
-        formatNumber(stone.quantity, 2),
         formatNumber(stone.price, 2),
+        formatNumber(stone.linearPrice || stone.price, 2),
+        formatNumber(stone.piecePrice || 0, 2),
+        formatNumber(stone.thickness || 0, 2),
+        formatNumber(stone.length || 0, 2),
+        formatNumber(stone.width || 0, 2),
         formatNumber(Number(stone.quantity || 0) * Number(stone.price || 0), 2),
         stone.location,
         stone.notes || ""
@@ -737,7 +830,7 @@ function buildReportCsv(type) {
   }
 
   return toCsv([
-    ["رقم الفاتورة", "التاريخ", "العميل", "التليفون", "الخامات", "الأمتار", "الإجمالي", "المدفوع", "المتبقي", "حالة الدفع", "طريقة الدفع", "تفاصيل الشغل", "تم بواسطة"],
+    ["رقم الفاتورة", "التاريخ", "العميل", "التليفون", "الخامات", "الكمية", "الإجمالي", "المدفوع", "المتبقي", "حالة الدفع", "طريقة الدفع", "تفاصيل الشغل", "تم بواسطة"],
     ...state.invoices.map(inv => [
       inv.number,
       formatDate(inv.date, true),
@@ -764,8 +857,19 @@ function downloadSelectedReport() {
 }
 
 function downloadFullBackup() {
-  downloadTextFile(`al-safwa-full-backup-${todayKey()}.json`, JSON.stringify(state, null, 2), "application/json;charset=utf-8");
-  showToast("تم تنزيل النسخة الكاملة");
+  printPdf("system");
+  showToast("اختاري حفظ كـ PDF من نافذة الطباعة");
+}
+
+function printPdf(mode = "system") {
+  document.body.classList.remove("print-invoice", "print-system");
+  document.body.classList.add(mode === "invoice" ? "print-invoice" : "print-system");
+  if (mode === "invoice") {
+    document.querySelector("#invoiceModal")?.scrollTo(0, 0);
+    document.querySelector("#invoicePreview")?.scrollTo(0, 0);
+  }
+  window.scrollTo(0, 0);
+  setTimeout(() => window.print(), 120);
 }
 
 function factoryReportStats() {
@@ -910,6 +1014,11 @@ function submitStone(event) {
     color: data.color.trim(),
     quantity: Number(data.quantity),
     price: Number(data.price),
+    linearPrice: Number(data.linearPrice || data.price || 0),
+    piecePrice: Number(data.piecePrice || 0),
+    thickness: Number(data.thickness || 0),
+    length: Number(data.length || 0),
+    width: Number(data.width || 0),
     location: data.location.trim(),
     notes: data.notes.trim(),
     pattern: data.pattern,
@@ -934,19 +1043,19 @@ function submitInvoice(event) {
   const data = Object.fromEntries(new FormData(form));
   const collectedItems = collectInvoiceItems();
   if (!collectedItems.length) return showToast("ضيفي نوع رخام واحد على الأقل في الفاتورة");
-  if (collectedItems.some(item => item.meters <= 0 || item.unitPrice < 0)) return showToast("راجعي الأمتار وسعر المتر في كل بند");
+  if (collectedItems.some(item => item.meters <= 0 || item.unitPrice < 0)) return showToast("راجعي الكمية وسعر الوحدة في كل بند");
 
   const soldByStone = {};
-  collectedItems.forEach(item => soldByStone[item.stoneId] = (soldByStone[item.stoneId] || 0) + item.meters);
+  collectedItems.forEach(item => soldByStone[item.stoneId] = (soldByStone[item.stoneId] || 0) + item.stockImpact);
   const unavailable = Object.entries(soldByStone).map(([stoneId, soldMeters]) => {
     const stone = state.stones.find(item => item.id === stoneId);
     return stone && soldMeters > Number(stone.quantity) ? { stone, soldMeters } : null;
   }).filter(Boolean)[0];
-  if (unavailable) return showToast(`الكمية المتاحة من ${unavailable.stone.name} هي ${meters(unavailable.stone.quantity)} فقط`);
+  if (unavailable) return showToast(`الكمية المطلوبة من ${unavailable.stone.name} غير متاحة في المخزون`);
 
   const items = collectedItems.map(({ stone, ...item }) => item);
   const total = items.reduce((sum, item) => sum + item.total, 0);
-  const soldMeters = items.reduce((sum, item) => sum + item.meters, 0);
+  const soldMeters = items.reduce((sum, item) => sum + item.stockImpact, 0);
   const paidAmount = data.paymentStatus === "paid" ? total : data.paymentStatus === "deposit" ? Math.min(Number(data.deposit || 0), total) : 0;
   const invoice = {
     id: crypto.randomUUID(),
@@ -981,9 +1090,17 @@ function submitInvoice(event) {
   form.paymentStatus.value = "paid";
   form.paymentMethod.value = "cash";
   clearInvoiceItems();
-  showToast("تم حفظ الفاتورة وخصم الكمية من المخزون");
+  showToast("تم حفظ الفاتورة وتحديث المخزون");
   renderAll();
   openInvoicePreview(invoice.id);
+}
+
+function invoiceCodePattern(invoice) {
+  const seed = `${invoice.number}-${invoice.phone}-${invoice.total}`.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return Array.from({ length: 49 }, (_, index) => {
+    const active = index % 8 === 0 || index % 6 === 2 || ((index * seed) % 11) < 5;
+    return `<span class="${active ? "is-active" : ""}"></span>`;
+  }).join("");
 }
 
 function openInvoicePreview(id) {
@@ -992,40 +1109,78 @@ function openInvoicePreview(id) {
   const preview = document.querySelector("#invoicePreview");
   const invoiceItems = getInvoiceItems(inv);
   preview.innerHTML = `
-    <div class="panel-head">
-      <div>
-        <h2>فاتورة رقم #${inv.number}</h2>
-        <p>${formatDate(inv.date, true)}</p>
+    <button class="icon-button close-x invoice-close" id="closeInvoiceModal" type="button" aria-label="إغلاق">×</button>
+    <section class="safwa-invoice-sheet">
+      <header class="invoice-hero">
+        <img src="assets/safwa-logo.png" alt="مصنع الصفوة" />
+        <div>
+          <p>مصنع الصفوة للرخام والجرانيت</p>
+          <h2>فاتورة ضريبية مبسطة</h2>
+          <span>AL-SAFWA MARBLE & GRANITE</span>
+        </div>
+      </header>
+
+      <div class="invoice-code-card">
+        <a href="${FACTORY_MAPS_URL}" target="_blank" rel="noopener" title="فتح موقع المصنع على الخريطة">
+          <img class="invoice-barcode-image" src="assets/safwa-barcode.png" alt="باركود موقع مصنع الصفوة" />
+        </a>
+        <strong>SAFWA-${inv.number}</strong>
+        <small>موقع المصنع على الخريطة</small>
       </div>
-      <button class="icon-button close-x" id="closeInvoiceModal" type="button" aria-label="إغلاق">×</button>
-    </div>
-    <div class="preview-line"><strong>العميل</strong><span>${inv.customerName}</span></div>
-    <div class="preview-line"><strong>التليفون</strong><span>${inv.phone}</span></div>
-    <div class="preview-line"><strong>العنوان</strong><span>${inv.address || "غير مسجل"}</span></div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>الخامة</th><th>الأمتار</th><th>سعر المتر</th><th>الإجمالي</th></tr></thead>
-        <tbody>
+
+      <section class="invoice-section">
+        <h3>بيانات الفاتورة</h3>
+        <div class="invoice-info-grid">
+          <div><span>رقم الفاتورة</span><strong>#${inv.number}</strong></div>
+          <div><span>التاريخ</span><strong>${formatDate(inv.date, true)}</strong></div>
+          <div><span>حالة الدفع</span><strong>${paymentLabel(inv.paymentStatus)}</strong></div>
+          <div><span>طريقة الدفع</span><strong>${inv.paymentStatus === "unpaid" ? "لم يتم الدفع" : paymentMethodLabel(inv.paymentMethod)}</strong></div>
+        </div>
+      </section>
+
+      <section class="invoice-section">
+        <h3>بيانات العميل</h3>
+        <div class="invoice-info-grid">
+          <div><span>العميل</span><strong>${inv.customerName}</strong></div>
+          <div><span>التليفون</span><strong>${inv.phone}</strong></div>
+          <div class="wide"><span>العنوان</span><strong>${inv.address || "غير مسجل"}</strong></div>
+        </div>
+      </section>
+
+      <section class="invoice-section">
+        <h3>تفاصيل الخامات</h3>
+        <div class="invoice-items-list">
           ${invoiceItems.map(item => `
-            <tr>
-              <td>${item.stoneName}</td>
-              <td>${meters(item.meters)}</td>
-              <td>${money(item.unitPrice)}</td>
-              <td>${money(item.total)}</td>
-            </tr>
+            <article>
+              <div>
+                <strong>${item.stoneName}</strong>
+                <span>${invoiceCalculationLabel(item.calculationType)} - ${itemMeasureLabel(item)} × ${itemPriceLabel(item)}${item.factor > 1 ? ` × ${formatNumber(item.factor, 2)}` : ""}</span>
+              </div>
+              <b>${money(item.total)}</b>
+            </article>
           `).join("")}
-        </tbody>
-      </table>
-    </div>
-    <div class="preview-line"><strong>الإجمالي</strong><span>${money(inv.total)}</span></div>
-    <div class="preview-line"><strong>المدفوع</strong><span>${money(inv.paidAmount)}</span></div>
-    <div class="preview-line"><strong>المتبقي</strong><span>${money(inv.remaining)}</span></div>
-    <div class="preview-line"><strong>حالة الدفع</strong><span>${paymentLabel(inv.paymentStatus)}</span></div>
-    <div class="preview-line"><strong>طريقة الدفع</strong><span>${inv.paymentStatus === "unpaid" ? "لم يتم الدفع" : paymentMethodLabel(inv.paymentMethod)}</span></div>
-    <div class="preview-line"><strong>تم التسجيل بواسطة</strong><span>${userLabel(inv.createdBy)}</span></div>
-    <p><strong>تفاصيل شغل العميل</strong></p>
-    <p>${inv.workDetails}</p>
+        </div>
+      </section>
+
+      <section class="invoice-section">
+        <h3>تفاصيل شغل العميل</h3>
+        <p class="invoice-work-details">${inv.workDetails}</p>
+      </section>
+
+      <section class="invoice-payment-card">
+        <h3>تفاصيل الدفع</h3>
+        <div><span>الإجمالي</span><strong>${money(inv.total)}</strong></div>
+        <div><span>المدفوع</span><strong>${money(inv.paidAmount)}</strong></div>
+        <div><span>المتبقي</span><strong>${money(inv.remaining)}</strong></div>
+      </section>
+
+      <footer class="invoice-footer">
+        <p>شكرًا لاختياركم مصنع الصفوة للرخام والجرانيت</p>
+        <strong>AL-SAFWA MARBLE & GRANITE</strong>
+      </footer>
+    </section>
     <div class="modal-actions">
+      <button class="primary-button" id="downloadInvoicePdf" type="button"><span class="material-symbols-outlined">download</span>تنزيل PDF</button>
       <button class="ghost-button" id="printInvoice"><span class="material-symbols-outlined">print</span>طباعة</button>
     </div>
   `;
@@ -1095,7 +1250,7 @@ function deleteStone(id) {
 function deleteInvoice(id) {
   const invoice = state.invoices.find(item => item.id === id);
   if (!invoice) return;
-  if (!confirm(`هل تريد حذف فاتورة #${invoice.number}؟ سيتم إرجاع الكمية للمخزون.`)) return;
+  if (!confirm(`هل تريد حذف فاتورة #${invoice.number}؟ سيتم تحديث المخزون بعد الحذف.`)) return;
   getInvoiceItems(invoice).forEach(item => {
     const stone = state.stones.find(stoneItem => stoneItem.id === item.stoneId);
     if (stone) {
@@ -1106,7 +1261,7 @@ function deleteInvoice(id) {
   });
   state.invoices = state.invoices.filter(item => item.id !== id);
   saveState();
-  showToast("تم حذف الفاتورة وإرجاع الكمية للمخزون");
+  showToast("تم حذف الفاتورة وتحديث المخزون");
   renderAll();
 }
 
@@ -1129,7 +1284,40 @@ function deleteUser(id) {
 }
 
 function formatCalculatorExpression(expression) {
-  return expression.replaceAll("*", "×").replaceAll("/", "÷");
+  return String(expression || "").replaceAll("*", "×").replaceAll("/", "÷");
+}
+
+function getLinearMeterCalculation() {
+  const length = Number(document.querySelector("#linearLength")?.value || 0);
+  const price = Number(document.querySelector("#linearPrice")?.value || 0);
+  const width = Number(document.querySelector("#linearWidth")?.value || 0);
+  const baseWidth = Number(document.querySelector("#linearBaseWidth")?.value || 60);
+  const extraMultiplier = Number(document.querySelector("#linearMultiplier")?.value || 1.25);
+  const factor = width > baseWidth ? Math.max(extraMultiplier, 1) : 1;
+  const total = Number((length * price * factor).toFixed(2));
+  const expression = `${formatNumber(length, 2)} متر طولي × ${formatNumber(price, 2)} ج.م${factor > 1 ? ` × ${formatNumber(factor, 2)}` : ""}`;
+  return { length, price, width, baseWidth, factor, total, expression };
+}
+
+function renderLinearMeterCalculator() {
+  const factorElement = document.querySelector("#linearFactor");
+  const totalElement = document.querySelector("#linearTotal");
+  if (!factorElement || !totalElement) return;
+  const calculation = getLinearMeterCalculation();
+  factorElement.textContent = formatNumber(calculation.factor, 2);
+  totalElement.textContent = money(calculation.total);
+}
+
+function saveLinearMeterCalculation() {
+  const calculation = getLinearMeterCalculation();
+  if (calculation.length <= 0 || calculation.price <= 0) {
+    showToast("اكتبي الطول وسعر المتر الطولي");
+    return;
+  }
+  state.calculatorHistory = [{ expression: calculation.expression, result: calculation.total }, ...(state.calculatorHistory || [])].slice(0, 8);
+  saveState();
+  renderCalculator();
+  showToast("تم حفظ عملية المتر الطولي");
 }
 
 function calculateExpression(expression) {
@@ -1139,11 +1327,12 @@ function calculateExpression(expression) {
 
 function renderCalculator() {
   document.querySelector("#calculatorExpression").textContent = calculatorExpression ? formatCalculatorExpression(calculatorExpression) : "0";
+  renderLinearMeterCalculator();
   const history = state.calculatorHistory || [];
   document.querySelector("#calculatorHistory").innerHTML = history.map(item => `
     <div class="calculator-history-item">
       <span>${formatCalculatorExpression(item.expression)}</span>
-      <strong>${formatNumber(item.result)}</strong>
+      <strong>${money(item.result)}</strong>
     </div>
   `).join("") || `<div class="calculator-history-item"><span>لا توجد عمليات محفوظة</span><strong>0</strong></div>`;
 }
@@ -1186,6 +1375,7 @@ document.addEventListener("click", event => {
   const deleteFactoryReportButton = event.target.closest("[data-delete-factory-report]");
   const removeInvoiceItemButton = event.target.closest(".remove-invoice-item");
   const calculatorButton = event.target.closest("[data-calc]");
+  const saveLinearCalculationButton = event.target.closest("#saveLinearCalculation");
 
   if (navButton) navigate(navButton.dataset.view);
   if (jumpButton) navigate(jumpButton.dataset.viewJump);
@@ -1210,9 +1400,11 @@ document.addEventListener("click", event => {
     updateInvoiceSummary();
   }
   if (calculatorButton) handleCalculator(calculatorButton.dataset.calc);
+  if (saveLinearCalculationButton) saveLinearMeterCalculation();
   if (event.target.closest("#closeStoneModal")) document.querySelector("#stoneModal").close();
   if (event.target.closest("#closeInvoiceModal")) document.querySelector("#invoiceModal").close();
-  if (event.target.closest("#printInvoice")) window.print();
+  if (event.target.closest("#printInvoice")) printPdf("invoice");
+  if (event.target.closest("#downloadInvoicePdf")) printPdf("invoice");
   if (event.target.closest("#clearCalculatorHistory")) {
     state.calculatorHistory = [];
     saveState();
@@ -1233,18 +1425,18 @@ document.querySelector("#downloadFullBackupBtn").addEventListener("click", downl
 document.querySelector("#downloadFactoryReportBtn").addEventListener("click", downloadFactoryReport);
 document.querySelector("#inventorySearch").addEventListener("input", renderInventory);
 document.querySelector("#invoiceSearch").addEventListener("input", renderInvoices);
+document.querySelector("#linearMeterForm").addEventListener("input", renderLinearMeterCalculator);
 document.querySelector("#invoiceForm").addEventListener("input", event => {
-  if (event.target.classList.contains("invoice-meters")) {
+  if (event.target.classList.contains("invoice-meters") || event.target.classList.contains("invoice-length") || event.target.classList.contains("invoice-width") || event.target.classList.contains("invoice-thickness") || event.target.classList.contains("invoice-base-width") || event.target.classList.contains("invoice-multiplier")) {
     syncInvoiceItemPrice(event.target.closest(".invoice-item"));
   }
   updateInvoiceSummary();
 });
 document.querySelector("#invoiceForm").addEventListener("change", event => {
-  if (event.target.classList.contains("invoice-stone")) {
-    syncInvoiceItemPrice(event.target.closest(".invoice-item"));
-  }
-  if (event.target.classList.contains("invoice-meters")) {
-    syncInvoiceItemPrice(event.target.closest(".invoice-item"));
+  if (event.target.classList.contains("invoice-stone") || event.target.classList.contains("invoice-mode")) {
+    const row = event.target.closest(".invoice-item");
+    syncInvoiceItemMode(row);
+    syncInvoiceItemPrice(row);
   }
   updateInvoiceSummary();
 });
@@ -1258,7 +1450,7 @@ document.querySelector("#resetDemoData").addEventListener("click", () => {
   renderAll();
 });
 document.querySelector("#exportBtn").addEventListener("click", () => {
-  downloadFullBackup();
+  printPdf("system");
 });
 document.querySelector("#importBtn").addEventListener("click", () => {
   document.querySelector("#importFile").click();
@@ -1286,6 +1478,9 @@ document.querySelector("#importFile").addEventListener("change", event => {
 });
 
 window.addEventListener("beforeunload", saveState);
+window.addEventListener("afterprint", () => {
+  document.body.classList.remove("print-invoice", "print-system");
+});
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") saveState();
 });
@@ -1298,3 +1493,4 @@ async function initializeApp() {
   saveState();
   renderAll();
 }
+

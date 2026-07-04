@@ -2,13 +2,13 @@
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=1440" />
     <title>مصنع الصفوة للرخام والجرانيت</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@200..700,0..1&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=20260704-login-mode-fix" />
   </head>
   <body>
     <section class="login-screen" id="loginScreen">
@@ -17,11 +17,10 @@
         <p class="eyebrow">مصنع الصفوة للرخام والجرانيت</p>
         <h1>تسجيل الدخول</h1>
         <form id="loginForm" class="login-form">
-          <label>اسم المستخدم<input required type="text" name="username" placeholder="فتحي عبدالستار" /></label>
-          <label>كلمة المرور<input required type="password" name="password" placeholder="كلمة المرور" /></label>
+          <label>اسم المستخدم<input required type="text" name="username" placeholder="ادخل اسم المستخدم" /></label>
+          <label>كلمة المرور<input required type="password" name="password" placeholder="ادخل كلمة المرور" /></label>
           <button class="primary-button" type="submit"><span class="material-symbols-outlined">login</span>دخول النظام</button>
         </form>
-        <p class="login-hint">الحسابات الافتراضية: فتحي عبدالستار و ياسر ناصف، كلمة المرور 123456</p>
       </div>
     </section>
 
@@ -57,7 +56,7 @@
           </div>
           <div class="top-actions">
             <span class="user-chip" id="currentUserChip"></span>
-            <button class="ghost-button" id="exportBtn"><span class="material-symbols-outlined">download</span>تصدير نسخة</button>
+            <button class="ghost-button" id="exportBtn"><span class="material-symbols-outlined">download</span>تصدير PDF</button>
             <button class="ghost-button" id="importBtn"><span class="material-symbols-outlined">upload</span>استيراد نسخة</button>
             <input class="hidden" id="importFile" type="file" accept="application/json" />
             <button class="primary-button" data-view-jump="sales"><span class="material-symbols-outlined">add</span>فاتورة جديدة</button>
@@ -65,7 +64,7 @@
           </div>
         </header>
 
-        <section class="view active" id="dashboardView">
+        <section class="view active dashboard-view" id="dashboardView">
           <div class="stats-grid" id="dashboardStats"></div>
           <div class="split-grid">
             <section class="panel">
@@ -89,7 +88,7 @@
             </section>
             <section class="panel">
               <div class="panel-head">
-                <h2>تنبيهات المخزون</h2>
+                <h2>تنبيهات الخامات</h2>
                 <button class="link-button" data-view-jump="inventory">إدارة</button>
               </div>
               <div id="stockAlerts" class="alert-list"></div>
@@ -148,8 +147,8 @@
               <p>إجمالي الفاتورة</p>
               <strong id="invoiceTotal">0.00 ج.م</strong>
               <dl>
-                <div><dt>الأمتار</dt><dd id="summaryMeters">0 م²</dd></div>
-                <div><dt>سعر المتر</dt><dd id="summaryPrice">0.00 ج.م</dd></div>
+                <div><dt>الكمية المحسوبة</dt><dd id="summaryMeters">0</dd></div>
+                <div><dt>عدد البنود</dt><dd id="summaryPrice">0 نوع</dd></div>
                 <div><dt>المدفوع</dt><dd id="summaryPaid">0.00 ج.م</dd></div>
                 <div><dt>المتبقي</dt><dd id="summaryRemaining">0.00 ج.م</dd></div>
               </dl>
@@ -174,7 +173,7 @@
                   <th>العميل</th>
                   <th>التليفون</th>
                   <th>الخامة</th>
-                  <th>الأمتار</th>
+                  <th>الكمية</th>
                   <th>الإجمالي</th>
                   <th>حالة الدفع</th>
                   <th>تم بواسطة</th>
@@ -197,15 +196,15 @@
               </select>
             </label>
             <button class="primary-button" id="downloadReportBtn" type="button"><span class="material-symbols-outlined">download</span>تنزيل التقرير</button>
-            <button class="ghost-button" id="downloadFullBackupBtn" type="button"><span class="material-symbols-outlined">database</span>تنزيل نسخة كاملة</button>
+            <button class="ghost-button" id="downloadFullBackupBtn" type="button"><span class="material-symbols-outlined">picture_as_pdf</span>تنزيل PDF كامل</button>
           </div>
           <div class="stats-grid" id="reportsStats"></div>
           <div class="split-grid">
             <section class="panel">
-              <h2>الكمية المتبقية من كل نوع</h2>
+              <h2>قيمة المخزون حسب النوع</h2>
               <div class="table-wrap">
                 <table>
-                  <thead><tr><th>الخامة</th><th>المتبقي</th><th>القيمة المخزنية</th></tr></thead>
+                  <thead><tr><th>الخامة</th><th>القيمة المخزنية</th></tr></thead>
                   <tbody id="stockReport"></tbody>
                 </table>
               </div>
@@ -272,36 +271,69 @@
         </section>
 
         <section class="view" id="calculatorView">
-          <section class="panel calculator-panel standalone-calculator">
-            <div class="panel-head">
-              <h2><span class="material-symbols-outlined">calculate</span>حاسبة القياسات</h2>
-              <button class="link-button" id="clearCalculatorHistory" type="button">مسح السجل</button>
-            </div>
-            <div class="calculator-display">
-              <span id="calculatorExpression">0</span>
-              <strong id="calculatorResult">0</strong>
-            </div>
-            <div class="calculator-keys" id="calculatorKeys">
-              <button type="button" data-calc="7">7</button>
-              <button type="button" data-calc="8">8</button>
-              <button type="button" data-calc="9">9</button>
-              <button type="button" class="operator" data-calc="/">÷</button>
-              <button type="button" data-calc="4">4</button>
-              <button type="button" data-calc="5">5</button>
-              <button type="button" data-calc="6">6</button>
-              <button type="button" class="operator" data-calc="*">×</button>
-              <button type="button" data-calc="1">1</button>
-              <button type="button" data-calc="2">2</button>
-              <button type="button" data-calc="3">3</button>
-              <button type="button" class="operator" data-calc="-">-</button>
-              <button type="button" class="danger-key" data-calc="clear">C</button>
-              <button type="button" data-calc="0">0</button>
-              <button type="button" data-calc=".">.</button>
-              <button type="button" class="operator" data-calc="+">+</button>
-              <button type="button" class="equals-key" data-calc="equals">=</button>
-            </div>
-            <div class="calculator-history" id="calculatorHistory"></div>
-          </section>
+          <div class="calculator-workspace">
+            <section class="panel calculator-panel standalone-calculator">
+              <div class="panel-head">
+                <h2><span class="material-symbols-outlined">calculate</span>حاسبة القياسات</h2>
+                <button class="link-button" id="clearCalculatorHistory" type="button">مسح السجل</button>
+              </div>
+              <div class="calculator-display">
+                <span id="calculatorExpression">0</span>
+                <strong id="calculatorResult">0</strong>
+              </div>
+              <div class="calculator-keys" id="calculatorKeys">
+                <button type="button" data-calc="7">7</button>
+                <button type="button" data-calc="8">8</button>
+                <button type="button" data-calc="9">9</button>
+                <button type="button" class="operator" data-calc="/">÷</button>
+                <button type="button" data-calc="4">4</button>
+                <button type="button" data-calc="5">5</button>
+                <button type="button" data-calc="6">6</button>
+                <button type="button" class="operator" data-calc="*">×</button>
+                <button type="button" data-calc="1">1</button>
+                <button type="button" data-calc="2">2</button>
+                <button type="button" data-calc="3">3</button>
+                <button type="button" class="operator" data-calc="-">-</button>
+                <button type="button" class="danger-key" data-calc="clear">C</button>
+                <button type="button" data-calc="0">0</button>
+                <button type="button" data-calc=".">.</button>
+                <button type="button" class="operator" data-calc="+">+</button>
+                <button type="button" class="equals-key" data-calc="equals">=</button>
+              </div>
+            </section>
+
+            <section class="panel calculator-panel linear-meter-panel">
+              <div class="panel-head">
+                <h2><span class="material-symbols-outlined">straighten</span>حساب المتر الطولي</h2>
+                <span class="soft-badge">درج، وزرات، قطع عرض ثابت</span>
+              </div>
+              <form id="linearMeterForm" class="form-grid linear-meter-form">
+                <label>الطول بالمتر<input id="linearLength" min="0" step="0.01" type="number" placeholder="3.20" /></label>
+                <label>سعر المتر الطولي<input id="linearPrice" min="0" step="0.01" type="number" placeholder="1800" /></label>
+                <label>العرض بالسنتيمتر<input id="linearWidth" min="0" step="0.1" type="number" placeholder="60" /></label>
+                <label>العرض الأساسي<input id="linearBaseWidth" min="1" step="0.1" type="number" value="60" /></label>
+                <label>معامل الزيادة<input id="linearMultiplier" min="1" step="0.05" type="number" value="1.25" /></label>
+                <button class="primary-button" id="saveLinearCalculation" type="button"><span class="material-symbols-outlined">save</span>حفظ العملية</button>
+              </form>
+              <div class="linear-result-card">
+                <div>
+                  <span>المعامل المستخدم</span>
+                  <strong id="linearFactor">1.00</strong>
+                </div>
+                <div>
+                  <span>إجمالي المتر الطولي</span>
+                  <strong id="linearTotal">0.00 ج.م</strong>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel calculator-panel calculator-history-panel">
+              <div class="panel-head">
+                <h2><span class="material-symbols-outlined">history</span>سجل الحسابات</h2>
+              </div>
+              <div class="calculator-history" id="calculatorHistory"></div>
+            </section>
+          </div>
         </section>
 
         <section class="view" id="usersView">
@@ -338,8 +370,13 @@
         <div class="form-grid">
           <label>اسم النوع<input required name="name" placeholder="مثال: رخام جلالة" /></label>
           <label>اللون أو الشكل<input required name="color" placeholder="بيج بخطوط ذهبية" /></label>
-          <label>الكمية المتاحة بالمتر<input required min="0" step="0.1" type="number" name="quantity" /></label>
-          <label>سعر المتر<input required min="0" step="0.01" type="number" name="price" /></label>
+          <label>الكمية المتاحة<input required min="0" step="0.1" type="number" name="quantity" /></label>
+          <label>سعر المتر المربع<input required min="0" step="0.01" type="number" name="price" /></label>
+          <label>سعر المتر الطولي<input min="0" step="0.01" type="number" name="linearPrice" /></label>
+          <label>سعر القطعة<input min="0" step="0.01" type="number" name="piecePrice" /></label>
+          <label>السمك بالسم<input min="0" step="0.1" type="number" name="thickness" /></label>
+          <label>الطول بالمتر<input min="0" step="0.01" type="number" name="length" /></label>
+          <label>العرض بالمتر<input min="0" step="0.01" type="number" name="width" /></label>
           <label>مكان التخزين<input required name="location" placeholder="عنبر A1" /></label>
           <label>شكل الخامة<select name="pattern"><option value="vein">عرقي فاتح</option><option value="dark">جرانيت داكن</option><option value="white">رخام أبيض</option><option value="red">جرانيت أحمر</option></select></label>
           <label class="wide">ملاحظات<textarea name="notes" rows="3" placeholder="أي ملاحظات عن التشطيب أو الجودة..."></textarea></label>
@@ -356,8 +393,7 @@
     </dialog>
 
     <div class="toast" id="toast"></div>
-    <script src="config.js"></script>
-    <script src="app.js"></script>
+  <script charset="UTF-8" src="config.js?v=20260704-login-mode-fix"></script>
+  <script charset="UTF-8" src="app.js?v=20260704-login-mode-fix"></script>
   </body>
-  <!-- deploy refresh -->
 </html>
